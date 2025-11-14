@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <title>Interactive 3D Globe</title>
 
-<!-- THREE.js + Globe libraries -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three-globe"></script>
 <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
@@ -15,14 +14,12 @@
         padding: 0;
         overflow: hidden;
         background: #000;
-        font-family: Arial, sans-serif;
         width: 100%;
         height: 100%;
     }
     #globe-container {
         width: 100vw;
         height: 100vh;
-        overflow: hidden;
         background: black;
     }
 </style>
@@ -32,60 +29,39 @@
 <div id="globe-container"></div>
 
 <script>
-/* ---------------------------------------------------
-   INSERT YOUR GITHUB TEXTURE URLS BELOW
-   --------------------------------------------------- */
-
 const EARTH_DAY_URL    = "https://vedant1424.github.io/globe-project/8k_earth_daymap.jpg";
-const EARTH_NIGHT_URL  = "https://vedant1424.github.io/globe-project/8k_earth_nightmap.jpg";
 const EARTH_NORMAL_URL = "https://vedant1424.github.io/globe-project/8k_earth_normalmap.jpg";
-
-
-/* ---------------------------------------------------
-   END OF USER SETTINGS
-   --------------------------------------------------- */
-
 
 // Setup
 const container = document.getElementById("globe-container");
 const scene = new THREE.Scene();
-
-const camera = new THREE.PerspectiveCamera(
-    55,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    2000
-);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 2000);
 camera.position.z = 380;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
-
 // Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(5, 3, 5);
-scene.add(ambientLight, directionalLight);
-
+scene.add(directionalLight);
 
 // Globe
 const globe = new ThreeGlobe()
     .globeImageUrl(EARTH_DAY_URL)
     .bumpImageUrl(EARTH_NORMAL_URL)
-    .nightImageUrl(EARTH_NIGHT_URL)
     .showAtmosphere(true)
     .atmosphereColor("cyan")
     .atmosphereAltitude(0.22);
 
 scene.add(globe);
 
-
 // Markers for India & Iran
 const markers = [
-    { lat: 20.5937, lng: 78.9629, size: 0.9, color: "red", label: "India" },
-    { lat: 32.4279, lng: 53.6880, size: 0.9, color: "red", label: "Iran" }
+    { lat: 20.5937, lng: 78.9629, size: 0.02, color: "red", label: "India" },
+    { lat: 32.4279, lng: 53.6880, size: 0.02, color: "red", label: "Iran" }
 ];
 
 globe
@@ -96,12 +72,10 @@ globe
     .pointColor("color")
     .pointRadius("size");
 
-
 // Controls
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableZoom = true;
 controls.zoomSpeed = 0.4;
-
 
 // Animation
 function animate() {
@@ -112,10 +86,9 @@ function animate() {
 }
 animate();
 
-
-// Responsive handling
+// Responsive
 window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
