@@ -10,14 +10,26 @@
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background: #000;
+        background: #f3f2ed;
         width: 100%;
         height: 100%;
     }
     #globe-container {
         width: 100vw;
         height: 100vh;
-        background: black;
+        background: #f3f2ed;
+    }
+    .label {
+        position: absolute;
+        color: white;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 4px 8px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 4px;
+        pointer-events: none;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
     }
 </style>
 </head>
@@ -30,51 +42,95 @@ const EARTH_NORMAL_URL = "https://vedant1424.github.io/globe-project/8k_earth_no
 // Setup
 const container = document.getElementById("globe-container");
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 2000);
-camera.position.z = 380;
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 2000);
+camera.position.z = 280;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setClearColor(0x000000, 0);
 renderer.setSize(window.innerWidth, window.innerHeight);
 container.appendChild(renderer.domElement);
 
 // Lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
 directionalLight.position.set(5, 3, 5);
 scene.add(directionalLight);
 
-// Globe
+// Globe - larger size
 const globe = new ThreeGlobe()
     .globeImageUrl(EARTH_DAY_URL)
     .bumpImageUrl(EARTH_NORMAL_URL)
     .showAtmosphere(true)
-    .atmosphereColor("cyan")
-    .atmosphereAltitude(0.22);
+    .atmosphereColor("#00d4ff")
+    .atmosphereAltitude(0.25);
+
+// Scale up the globe
+globe.scale.set(1.4, 1.4, 1.4);
 scene.add(globe);
 
-// Markers for India & Iran
+// Professional markers for India & Iran
 const markers = [
-    { lat: 20.5937, lng: 78.9629, size: 0.02, color: "red", label: "India" },
-    { lat: 32.4279, lng: 53.6880, size: 0.02, color: "red", label: "Iran" }
+    { lat: 20.5937, lng: 78.9629, size: 0.8, color: "#ff3333", label: "India" },
+    { lat: 32.4279, lng: 53.6880, size: 0.8, color: "#ff3333", label: "Iran" }
 ];
 
 globe
     .pointsData(markers)
     .pointLat("lat")
     .pointLng("lng")
-    .pointAltitude(0.02)
+    .pointAltitude(0.01)
     .pointColor("color")
-    .pointRadius("size");
+    .pointRadius("size")
+    .pointResolution(32);
 
-// Simple manual orbit controls
+// Add custom marker rings for better visibility
+markers.forEach(marker => {
+    const phi = (90 - marker.lat) * (Math.PI / 180);
+    const theta = (marker.lng + 180) * (Math.PI / 180);
+    const radius = 100 * 1.4 + 1;
+    
+    const x = -(radius * Math.sin(phi) * Math.cos(theta));
+    const y = radius * Math.cos(phi);
+    const z = radius * Math.sin(phi) * Math.sin(theta);
+    
+    // Outer glow ring
+    const ringGeometry = new THREE.RingGeometry(1.5, 2.5, 32);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff3333,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.6
+    });
+    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring.position.set(x, y, z);
+    ring.lookAt(0, 0, 0);
+    globe.add(ring);
+    
+    // Pulsing animation
+    let scale = 1;
+    let growing = true;
+    function animateRing() {
+        if (growing) {
+            scale += 0.01;
+            if (scale >= 1.3) growing = false;
+        } else {
+            scale -= 0.01;
+            if (scale <= 1) growing = true;
+        }
+        ring.scale.set(scale, scale, 1);
+    }
+    ring.userData.animate = animateRing;
+});
+
+// Enhanced rotation with momentum
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
-let rotation = { x: 0, y: 0 };
-let autoRotate = true;
+let velocity = { x: 0, y: 0 };
+let autoRotateSpeed = 0.003;
 
 renderer.domElement.addEventListener('mousedown', (e) => {
     isDragging = true;
-    autoRotate = false;
+    velocity = { x: 0, y: 0 };
     previousMousePosition = { x: e.clientX, y: e.clientY };
 });
 
@@ -83,8 +139,11 @@ renderer.domElement.addEventListener('mousemove', (e) => {
         const deltaX = e.clientX - previousMousePosition.x;
         const deltaY = e.clientY - previousMousePosition.y;
         
-        rotation.y += deltaX * 0.005;
-        rotation.x += deltaY * 0.005;
+        velocity.x = deltaY * 0.01;
+        velocity.y = deltaX * 0.01;
+        
+        globe.rotation.x += velocity.x;
+        globe.rotation.y += velocity.y;
         
         previousMousePosition = { x: e.clientX, y: e.clientY };
     }
@@ -101,16 +160,19 @@ renderer.domElement.addEventListener('mouseleave', () => {
 // Zoom with mouse wheel
 renderer.domElement.addEventListener('wheel', (e) => {
     e.preventDefault();
-    camera.position.z += e.deltaY * 0.1;
-    camera.position.z = Math.max(200, Math.min(600, camera.position.z));
+    camera.position.z += e.deltaY * 0.15;
+    camera.position.z = Math.max(180, Math.min(500, camera.position.z));
 });
 
 // Touch support for mobile
 let touchStartDistance = 0;
+let lastTouchPosition = { x: 0, y: 0 };
+
 renderer.domElement.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
         isDragging = true;
-        autoRotate = false;
+        velocity = { x: 0, y: 0 };
+        lastTouchPosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
         previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -120,12 +182,16 @@ renderer.domElement.addEventListener('touchstart', (e) => {
 });
 
 renderer.domElement.addEventListener('touchmove', (e) => {
+    e.preventDefault();
     if (e.touches.length === 1 && isDragging) {
         const deltaX = e.touches[0].clientX - previousMousePosition.x;
         const deltaY = e.touches[0].clientY - previousMousePosition.y;
         
-        rotation.y += deltaX * 0.005;
-        rotation.x += deltaY * 0.005;
+        velocity.x = deltaY * 0.01;
+        velocity.y = deltaX * 0.01;
+        
+        globe.rotation.x += velocity.x;
+        globe.rotation.y += velocity.y;
         
         previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2) {
@@ -134,7 +200,7 @@ renderer.domElement.addEventListener('touchmove', (e) => {
         const distance = Math.sqrt(dx * dx + dy * dy);
         const delta = distance - touchStartDistance;
         camera.position.z -= delta * 0.5;
-        camera.position.z = Math.max(200, Math.min(600, camera.position.z));
+        camera.position.z = Math.max(180, Math.min(500, camera.position.z));
         touchStartDistance = distance;
     }
 });
@@ -143,16 +209,29 @@ renderer.domElement.addEventListener('touchend', () => {
     isDragging = false;
 });
 
-// Animation
+// Animation with momentum
 function animate() {
     requestAnimationFrame(animate);
     
-    if (autoRotate) {
-        globe.rotation.y += 0.0016;
-    } else {
-        globe.rotation.y = rotation.y;
-        globe.rotation.x = rotation.x;
+    if (!isDragging) {
+        // Apply momentum decay
+        velocity.x *= 0.95;
+        velocity.y *= 0.95;
+        
+        // Always rotate with base speed + momentum
+        globe.rotation.y += autoRotateSpeed + velocity.y;
+        globe.rotation.x += velocity.x;
+        
+        // Clamp X rotation to prevent flipping
+        globe.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, globe.rotation.x));
     }
+    
+    // Animate marker rings
+    globe.children.forEach(child => {
+        if (child.userData.animate) {
+            child.userData.animate();
+        }
+    });
     
     renderer.render(scene, camera);
 }
