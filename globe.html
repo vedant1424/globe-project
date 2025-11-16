@@ -77,10 +77,14 @@ const markers = [
 const pingRings = [];
 
 markers.forEach(marker => {
+    // Convert lat/lng to radians
     const phi = (90 - marker.lat) * (Math.PI / 180);
     const theta = (marker.lng + 180) * (Math.PI / 180);
-    const radius = 100 * 1.4;
     
+    // Globe radius is 100, scaled by 1.4
+    const radius = 100;
+    
+    // Calculate position on sphere surface
     const x = -(radius * Math.sin(phi) * Math.cos(theta));
     const y = radius * Math.cos(phi);
     const z = radius * Math.sin(phi) * Math.sin(theta);
@@ -96,7 +100,11 @@ markers.forEach(marker => {
         });
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
         ring.position.set(x, y, z);
-        ring.lookAt(0, 0, 0);
+        
+        // Make ring face away from center (perpendicular to surface)
+        const normal = new THREE.Vector3(x, y, z).normalize();
+        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        
         globe.add(ring);
         
         // Store animation data
