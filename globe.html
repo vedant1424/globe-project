@@ -68,65 +68,75 @@ const globe = new ThreeGlobe()
 globe.scale.set(1.4, 1.4, 1.4);
 scene.add(globe);
 
-// Professional markers for India & Iran
+// Create Call of Duty style ping markers
 const markers = [
-    { lat: 20.5937, lng: 78.9629, size: 0.8, color: "#ff3333", label: "India" },
-    { lat: 32.4279, lng: 53.6880, size: 0.8, color: "#ff3333", label: "Iran" }
+    { lat: 20.5937, lng: 78.9629, label: "India" },
+    { lat: 32.4279, lng: 53.6880, label: "Iran" }
 ];
 
-globe
-    .pointsData(markers)
-    .pointLat("lat")
-    .pointLng("lng")
-    .pointAltitude(0.01)
-    .pointColor("color")
-    .pointRadius("size")
-    .pointResolution(32);
+const pingRings = [];
 
-// Add custom marker rings for better visibility
 markers.forEach(marker => {
     const phi = (90 - marker.lat) * (Math.PI / 180);
     const theta = (marker.lng + 180) * (Math.PI / 180);
-    const radius = 100 * 1.4 + 1;
+    const radius = 100 * 1.4;
     
     const x = -(radius * Math.sin(phi) * Math.cos(theta));
     const y = radius * Math.cos(phi);
     const z = radius * Math.sin(phi) * Math.sin(theta);
     
-    // Outer glow ring
-    const ringGeometry = new THREE.RingGeometry(1.5, 2.5, 32);
-    const ringMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff3333,
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.6
-    });
-    const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-    ring.position.set(x, y, z);
-    ring.lookAt(0, 0, 0);
-    globe.add(ring);
-    
-    // Pulsing animation
-    let scale = 1;
-    let growing = true;
-    function animateRing() {
-        if (growing) {
-            scale += 0.01;
-            if (scale >= 1.3) growing = false;
-        } else {
-            scale -= 0.01;
-            if (scale <= 1) growing = true;
-        }
-        ring.scale.set(scale, scale, 1);
+    // Create 3 concentric rings that will animate outward
+    for (let i = 0; i < 3; i++) {
+        const ringGeometry = new THREE.RingGeometry(0.5, 1, 64);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.8
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.position.set(x, y, z);
+        ring.lookAt(0, 0, 0);
+        globe.add(ring);
+        
+        // Store animation data
+        ring.userData = {
+            scale: 0.1,
+            opacity: 0.8,
+            delay: i * 0.5, // Stagger the rings
+            timer: 0,
+            maxScale: 4,
+            animate: function(delta) {
+                this.timer += delta;
+                
+                if (this.timer > this.delay) {
+                    const progress = (this.timer - this.delay) / 2; // 2 second animation
+                    
+                    if (progress <= 1) {
+                        this.scale = 0.1 + (this.maxScale * progress);
+                        this.opacity = 0.8 * (1 - progress);
+                    } else {
+                        // Reset for loop
+                        this.timer = 0;
+                        this.scale = 0.1;
+                        this.opacity = 0.8;
+                    }
+                    
+                    ring.scale.set(this.scale, this.scale, 1);
+                    ring.material.opacity = this.opacity;
+                }
+            }
+        };
+        
+        pingRings.push(ring);
     }
-    ring.userData.animate = animateRing;
 });
 
 // Enhanced rotation with momentum
 let isDragging = false;
 let previousMousePosition = { x: 0, y: 0 };
 let velocity = { x: 0, y: 0 };
-let autoRotateSpeed = 0.003;
+let autoRotateSpeed = 0.001;
 
 renderer.domElement.addEventListener('mousedown', (e) => {
     isDragging = true;
@@ -139,8 +149,8 @@ renderer.domElement.addEventListener('mousemove', (e) => {
         const deltaX = e.clientX - previousMousePosition.x;
         const deltaY = e.clientY - previousMousePosition.y;
         
-        velocity.x = deltaY * 0.01;
-        velocity.y = deltaX * 0.01;
+        velocity.x = deltaY * 0.005;
+        velocity.y = deltaX * 0.005;
         
         globe.rotation.x += velocity.x;
         globe.rotation.y += velocity.y;
@@ -187,8 +197,8 @@ renderer.domElement.addEventListener('touchmove', (e) => {
         const deltaX = e.touches[0].clientX - previousMousePosition.x;
         const deltaY = e.touches[0].clientY - previousMousePosition.y;
         
-        velocity.x = deltaY * 0.01;
-        velocity.y = deltaX * 0.01;
+        velocity.x = deltaY * 0.005;
+        velocity.y = deltaX * 0.005;
         
         globe.rotation.x += velocity.x;
         globe.rotation.y += velocity.y;
@@ -210,13 +220,16 @@ renderer.domElement.addEventListener('touchend', () => {
 });
 
 // Animation with momentum
+let clock = new THREE.Clock();
+
 function animate() {
     requestAnimationFrame(animate);
+    const delta = clock.getDelta();
     
     if (!isDragging) {
-        // Apply momentum decay
-        velocity.x *= 0.95;
-        velocity.y *= 0.95;
+        // Apply momentum decay (slower)
+        velocity.x *= 0.97;
+        velocity.y *= 0.97;
         
         // Always rotate with base speed + momentum
         globe.rotation.y += autoRotateSpeed + velocity.y;
@@ -226,10 +239,10 @@ function animate() {
         globe.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, globe.rotation.x));
     }
     
-    // Animate marker rings
-    globe.children.forEach(child => {
-        if (child.userData.animate) {
-            child.userData.animate();
+    // Animate ping rings
+    pingRings.forEach(ring => {
+        if (ring.userData.animate) {
+            ring.userData.animate(delta);
         }
     });
     
