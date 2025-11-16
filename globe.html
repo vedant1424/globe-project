@@ -74,20 +74,29 @@ const markers = [
     { lat: 32.4279, lng: 53.6880, label: "Iran" }
 ];
 
+// First add point markers to get correct positioning
+globe
+    .pointsData(markers)
+    .pointLat("lat")
+    .pointLng("lng")
+    .pointAltitude(0)
+    .pointColor(() => 'red')
+    .pointRadius(0.3);
+
 const pingRings = [];
 
 markers.forEach(marker => {
-    // Convert lat/lng to radians
+    // Convert lat/lng to radians - use the same method as three-globe
     const phi = (90 - marker.lat) * (Math.PI / 180);
     const theta = (marker.lng + 180) * (Math.PI / 180);
     
-    // Globe radius is 100, scaled by 1.4
+    // Globe base radius is 100
     const radius = 100;
     
-    // Calculate position on sphere surface
-    const x = -(radius * Math.sin(phi) * Math.cos(theta));
-    const y = radius * Math.cos(phi);
+    // Calculate position on sphere surface (matching three-globe's coordinate system)
+    const x = radius * Math.sin(phi) * Math.cos(theta);
     const z = radius * Math.sin(phi) * Math.sin(theta);
+    const y = radius * Math.cos(phi);
     
     // Create 3 concentric rings that will animate outward
     for (let i = 0; i < 3; i++) {
