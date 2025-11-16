@@ -74,7 +74,7 @@ const markers = [
     { lat: 32.4279, lng: 53.6880, label: "Iran" }
 ];
 
-// First add point markers to get correct positioning
+// Add point markers to get correct positioning
 globe
     .pointsData(markers)
     .pointLat("lat")
@@ -85,69 +85,70 @@ globe
 
 const pingRings = [];
 
-markers.forEach(marker => {
-    // Convert lat/lng to radians - use the same method as three-globe
-    const phi = (90 - marker.lat) * (Math.PI / 180);
-    const theta = (marker.lng + 180) * (Math.PI / 180);
-    
-    // Globe base radius is 100
-    const radius = 100;
-    
-    // Calculate position on sphere surface (matching three-globe's coordinate system)
-    const x = radius * Math.sin(phi) * Math.cos(theta);
-    const z = radius * Math.sin(phi) * Math.sin(theta);
-    const y = radius * Math.cos(phi);
-    
-    // Create 3 concentric rings that will animate outward
-    for (let i = 0; i < 3; i++) {
-        const ringGeometry = new THREE.RingGeometry(0.5, 1, 64);
-        const ringMaterial = new THREE.MeshBasicMaterial({
-            color: 0xff0000,
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.8
-        });
-        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
-        ring.position.set(x, y, z);
+// Wait for globe to render points, then add rings at exact same positions
+setTimeout(() => {
+    markers.forEach((marker, index) => {
+        // Use three-globe's internal coordinate conversion
+        const phi = (90 - marker.lat) * (Math.PI / 180);
+        const theta = (marker.lng - 90) * (Math.PI / 180);
         
-        // Make ring face away from center (perpendicular to surface)
-        const normal = new THREE.Vector3(x, y, z).normalize();
-        ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+        const radius = 100;
         
-        globe.add(ring);
+        // Match three-globe's coordinate system exactly
+        const x = radius * Math.cos(phi) * Math.cos(theta);
+        const y = radius * Math.sin(phi);
+        const z = radius * Math.cos(phi) * Math.sin(theta);
         
-        // Store animation data
-        ring.userData = {
-            scale: 0.1,
-            opacity: 0.8,
-            delay: i * 0.5, // Stagger the rings
-            timer: 0,
-            maxScale: 4,
-            animate: function(delta) {
-                this.timer += delta;
-                
-                if (this.timer > this.delay) {
-                    const progress = (this.timer - this.delay) / 2; // 2 second animation
+        // Create 3 concentric rings that will animate outward
+        for (let i = 0; i < 3; i++) {
+            const ringGeometry = new THREE.RingGeometry(0.5, 1, 64);
+            const ringMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.position.set(x, y, z);
+            
+            // Make ring face away from center
+            const normal = new THREE.Vector3(x, y, z).normalize();
+            ring.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+            
+            globe.add(ring);
+            
+            // Store animation data
+            ring.userData = {
+                scale: 0.1,
+                opacity: 0.8,
+                delay: i * 0.5,
+                timer: 0,
+                maxScale: 4,
+                animate: function(delta) {
+                    this.timer += delta;
                     
-                    if (progress <= 1) {
-                        this.scale = 0.1 + (this.maxScale * progress);
-                        this.opacity = 0.8 * (1 - progress);
-                    } else {
-                        // Reset for loop
-                        this.timer = 0;
-                        this.scale = 0.1;
-                        this.opacity = 0.8;
+                    if (this.timer > this.delay) {
+                        const progress = (this.timer - this.delay) / 2;
+                        
+                        if (progress <= 1) {
+                            this.scale = 0.1 + (this.maxScale * progress);
+                            this.opacity = 0.8 * (1 - progress);
+                        } else {
+                            this.timer = 0;
+                            this.scale = 0.1;
+                            this.opacity = 0.8;
+                        }
+                        
+                        ring.scale.set(this.scale, this.scale, 1);
+                        ring.material.opacity = this.opacity;
                     }
-                    
-                    ring.scale.set(this.scale, this.scale, 1);
-                    ring.material.opacity = this.opacity;
                 }
-            }
-        };
-        
-        pingRings.push(ring);
-    }
-});
+            };
+            
+            pingRings.push(ring);
+        }
+    });
+}, 100);
 
 // Enhanced rotation with momentum
 let isDragging = false;
